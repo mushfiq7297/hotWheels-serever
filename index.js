@@ -36,8 +36,9 @@ async function run() {
       const category = req.query.category || '';
       const minPrice = parseFloat(req.query.minPrice) || 0;
       const maxPrice = parseFloat(req.query.maxPrice) || Number.MAX_VALUE;
+      const sortBy = req.query.sortBy || 'dateAdded'; // Default to dateAdded
+      const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1; // Default to descending
   
-      // Construct query object
       let query = {};
       if (searchQuery) {
           query.productName = { $regex: searchQuery, $options: 'i' };
@@ -56,6 +57,7 @@ async function run() {
       const totalPages = Math.ceil(totalProducts / limit);
   
       const products = await productCollection.find(query)
+          .sort({ [sortBy]: sortOrder })
           .skip(skip)
           .limit(limit)
           .toArray();
@@ -66,6 +68,7 @@ async function run() {
           totalPages,
       });
   });
+  
   
 
     // Connect the client to the server (optional starting in v4.7)
