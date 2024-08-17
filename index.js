@@ -27,49 +27,47 @@ async function run() {
     const productCollection = client.db("hotWheels").collection("products");
 
     // Implementing pagination in the /products route
-   app.get("/products", async (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 9;
-  const skip = (page - 1) * limit;
+    app.get("/products", async (req, res) => {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 9;
+      const skip = (page - 1) * limit;
+      const searchQuery = req.query.search || '';
+      const brandName = req.query.brandName || '';
+      const category = req.query.category || '';
+      const minPrice = parseFloat(req.query.minPrice) || 0;
+      const maxPrice = parseFloat(req.query.maxPrice) || Number.MAX_VALUE;
   
-  // Extract filter parameters
-  const searchQuery = req.query.search || '';
-  const brand = req.query.brand || '';
-  const category = req.query.category || '';
-  const minPrice = parseFloat(req.query.minPrice) || 0;
-  const maxPrice = parseFloat(req.query.maxPrice) || Infinity;
-
-  // Build the query object
-  const query = {
-    $and: [
-      { name: { $regex: searchQuery, $options: 'i' } },
-      { brand: { $regex: brand, $options: 'i' } },
-      { category: { $regex: category, $options: 'i' } },
-      { price: { $gte: minPrice, $lte: maxPrice } }
-    ]
-  };
-
-  // Remove empty filters
-  const filterQuery = Object.fromEntries(
-    Object.entries(query).filter(([_, value]) => value.$and && value.$and.length > 0)
-  );
-
-  const totalProducts = await productCollection.countDocuments(filterQuery);
-  const totalPages = Math.ceil(totalProducts / limit);
-
-  const products = await productCollection.find(filterQuery)
-    .skip(skip)
-    .limit(limit)
-    .toArray();
-
-  res.send({
-    products,
-    currentPage: page,
-    totalPages,
+      // Construct query object
+      let query = {};
+      if (searchQuery) {
+          query.productName = { $regex: searchQuery, $options: 'i' };
+      }
+      if (brandName) {
+          query.brandName = brandName;
+      }
+      if (category) {
+          query.category = category;
+      }
+      if (minPrice || maxPrice) {
+          query.price = { $gte: minPrice, $lte: maxPrice };
+      }
+  
+      const totalProducts = await productCollection.countDocuments(query);
+      const totalPages = Math.ceil(totalProducts / limit);
+  
+      const products = await productCollection.find(query)
+          .skip(skip)
+          .limit(limit)
+          .toArray();
+  
+      res.send({
+          products,
+          currentPage: page,
+          totalPages,
+      });
   });
-});
+  
 
-    
     // Connect the client to the server (optional starting in v4.7)
     await client.connect();
 
