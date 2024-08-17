@@ -27,26 +27,49 @@ async function run() {
     const productCollection = client.db("hotWheels").collection("products");
 
     // Implementing pagination in the /products route
-    app.get("/products", async (req, res) => {
-      const page = parseInt(req.query.page) || 1; // Default to page 1 if not provided
-      const limit = parseInt(req.query.limit) || 9; // Default to 9 items per page if not provided
-      const skip = (page - 1) * limit; // Calculate how many items to skip
+   app.get("/products", async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 9;
+  const skip = (page - 1) * limit;
+  
+  // Extract filter parameters
+  const searchQuery = req.query.search || '';
+  const brand = req.query.brand || '';
+  const category = req.query.category || '';
+  const minPrice = parseFloat(req.query.minPrice) || 0;
+  const maxPrice = parseFloat(req.query.maxPrice) || Infinity;
 
-      const totalProducts = await productCollection.countDocuments(); // Get the total count of documents
-      const totalPages = Math.ceil(totalProducts / limit); // Calculate total number of pages
+  // Build the query object
+  const query = {
+    $and: [
+      { name: { $regex: searchQuery, $options: 'i' } },
+      { brand: { $regex: brand, $options: 'i' } },
+      { category: { $regex: category, $options: 'i' } },
+      { price: { $gte: minPrice, $lte: maxPrice } }
+    ]
+  };
 
-      const products = await productCollection.find()
-        .skip(skip) // Skip the necessary number of documents
-        .limit(limit) // Limit the result set to the specified limit
-        .toArray(); // Convert the result set to an array
+  // Remove empty filters
+  const filterQuery = Object.fromEntries(
+    Object.entries(query).filter(([_, value]) => value.$and && value.$and.length > 0)
+  );
 
-      res.send({
-        products,
-        currentPage: page,
-        totalPages,
-      });
-    });
+  const totalProducts = await productCollection.countDocuments(filterQuery);
+  const totalPages = Math.ceil(totalProducts / limit);
 
+  const products = await productCollection.find(filterQuery)
+    .skip(skip)
+    .limit(limit)
+    .toArray();
+
+  res.send({
+    products,
+    currentPage: page,
+    totalPages,
+  });
+});
+
+    
     // Connect the client to the server (optional starting in v4.7)
     await client.connect();
 
